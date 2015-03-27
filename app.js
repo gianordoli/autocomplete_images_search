@@ -7,7 +7,6 @@ var		express = require('express'),
 
 var app = express();
 
-
 /*-------------------- SETUP --------------------*/
 var app = express();
 // .use is a middleware
@@ -46,7 +45,10 @@ app.get('/start', function(request, response) {
 		return item.domain;
 	});
 
-	searchMongoDB(({'domain': {'$in': filteredDomains } }), function(data){
+	searchMongoDB(({
+		'service': 'images',
+		'domain': {'$in': filteredDomains }
+	}), function(data){
 		/* -----------------------------------------*/
 		// Group records by language.
 		// From [records] to
@@ -79,15 +81,15 @@ app.get('/start', function(request, response) {
 		// 	 { 'language': { 'letter': [ { 'query' : quant } ] } }
 		/*------------------------------------------*/
 		// Object
-		_.each(groupedByLanguage, function(languageObj, key, list){				
+		var newGroupedByLanguage = _.mapObject(groupedByLanguage, function(languageObj, key, list){				
 
 			// Object
-			_.each(languageObj, function(letterObj, key, list){					
+			var newLanguageObj = _.mapObject(languageObj, function(letterObj, key, list){					
 
 				var letterResults = {};
 				
 				// Array (of records)
-				_.each(letterObj, function(record, index, list){				
+				_.each(letterObj, function(record, index, list){
 					
 					// Array (results inside each record)
 					_.each(record.results, function(result, index, list){
@@ -100,22 +102,22 @@ app.get('/start', function(request, response) {
 						}
 					});
 				});
-
-				console.log(letterResults);
-
+				// console.log(letterResults);
+				return letterResults;
 			});
-
-			// var resultsCombined = _.map(value, function(item, index, list){
-			// 	return item.results
-			// });
-			// console.log(resultsCombined);
-			// var records = 
-			// var groupedByLetter = _.groupBy(value, function(val, k, list){
-			// 	return val.letter;
-			// });
-			// console.log(Object.keys(groupedByLetter));
-			// return groupedByLetter;
+			// console.log(newLanguageObj);
+			return newLanguageObj;
 		});
+
+		var file = 'images_by_language.json';
+		jf.writeFile(file, newGroupedByLanguage, function(err) {
+			// console.log(err);
+			if(!err){
+				console.log('Results successfully saved at ' + file);
+			}else{
+				console.log('Failed to save JSON file.');
+			}
+		});		
 
 		// response.json({results: data});	
 	});
