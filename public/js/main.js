@@ -88,6 +88,21 @@ app.control = (function() {
 	var init = function() {
 		console.log('Called init');
 		callLoader();
+
+		var test = { 'gabriel': [1, 2, 3], 'laura': [3, 4, 5] };
+
+		// if(!test.hasOwnProperty('oi')){
+		// 	test['oi'] = 8;
+		// };
+
+		// test = _.map(test, function(value, key, obj){
+		// 	// // console.log(value);
+		// 	var newValue = _.map(value, function(item, index, list){
+		// 		return item * 2;
+		// 	});
+		// 	return newValue;
+		// });
+		console.log(test);
 		// initGlobalVars();
 		loadData(function(data){
 		// 	processData(data, function(processedData){
@@ -102,7 +117,7 @@ app.control = (function() {
 	return{
 		init: init
 	}
-})(window, document, jQuery);
+})(window, document, jQuery, _);
 
 // call app.map.init() once the DOM is loaded
 window.addEventListener('DOMContentLoaded', function(){
