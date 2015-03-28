@@ -21,6 +21,7 @@
     "body-parser": "^1.12.2",
     "mongodb": "^2.0.25",
     "underscore": "^1.8.2",
-    "jsonfile": "^2.0.0"
+    "jsonfile": "^2.0.0",
+    "google-images": "^0.1.0"
   }
 }

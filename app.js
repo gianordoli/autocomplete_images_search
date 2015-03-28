@@ -3,7 +3,8 @@ var		express = require('express'),
 	 bodyParser = require('body-parser')
 	MongoClient = require('mongodb').MongoClient,
 			 jf = require('jsonfile'),
-			  _ = require('underscore');
+			  _ = require('underscore')
+		 client = require('google-images');
 
 var app = express();
 
@@ -35,72 +36,86 @@ var loadedCountries = jf.readFileSync('data/languages.json');
 
 /*------------------- ROUTERS -------------------*/
 app.get('/start', function(request, response) {
+	console.log('Started app.');
 
 	getDateRangeDB(function(range){
-		// console.log(range);
+		console.log('Got date range.');
+		console.log(range);
 		// Get the last day only:
 		range[0] = range[1] - 86400000; // Last day - 1
 
 		getDomains(function(domains){
+			console.log('Grabbed the domains.');
 
 			searchMongoDB(({
 				'date': {'$gt': new Date(range[0]), '$lte': new Date(range[1])},
 				'service': 'images',
 				'domain': {'$in': domains }
 			}), function(data){
+				console.log('Got results from DB.');
 				// console.log(data);
 
-				/* -----------------------------------------*/
-				// Group records by language.
-				// From [records] to
-				// 	 { 'language': [records] }
-				/*------------------------------------------*/
-				var groupedByLanguage = _.groupBy(data, function(item, index, list){
-					return item.language;
-				});
-				// console.log(Object.keys(groupedByLanguage));
-				// console.log(groupedByLanguage);
-
-				// groupedByLanguage = _.mapObject(groupedByLanguage, function(value, key, list){
-					// return loadedCountries[languageIndex].language_a_name;
-				// });
-
-				for(key in groupedByLanguage){
-					// console.log(key);
-					var languageIndex = _.findIndex(loadedCountries, function(item){
-						return item.language_a_code == key;
+				parseResultsIntoRecords(data, function(records){
+					console.log('Parsed results into records.');
+					// getImages(records, 0);
+					response.json({
+						data: records
 					});
-					var languageName = loadedCountries[languageIndex].language_a_name;
-					
-					for(var i = 0; i < groupedByLanguage[key].length; i++){
-						groupedByLanguage[key][i]['language_name'] = languageName;
-					}
-				}
-
-				// groupedByLanguage = _.sortBy(groupedByLanguage)
-
-				groupedByLanguage = _.toArray(groupedByLanguage);
-				groupedByLanguage = _.sortBy(groupedByLanguage, function(item, index, list){
-					return item[0]['language_name'];
 				});
-
-				response.json({results: groupedByLanguage});
-
-				// var file = 'images_by_language_date.json';
-				// jf.writeFile(file, groupedByLanguage, function(err) {
-				// 	// console.log(err);
-				// 	if(!err){
-				// 		console.log('Results successfully saved at ' + file);
-				// 	}else{
-				// 		console.log('Failed to save JSON file.');
-				// 	}
-				// });
 			});
 		});
-	});	
-
-	
+	});		
 });
+
+app.get('/images/', function(request, response) {
+	console.log(request.query.word);
+	getImages(request.query.word, response);
+});
+
+var getImages = function(query, response){
+	console.log('Called getImages for '+query);
+
+	client.search(query, function(err, images){
+	    // return images[0].url;
+	    if(!err){
+			// console.log(images);	
+			response.json({
+				width: images[0].width,
+				height: images[0].height,
+				url: images[0].unescapedUrl
+			});
+	    }
+	});
+}
+
+function parseResultsIntoRecords(data, callback){
+	var parsedRecords = [];
+	// {
+	// 	query: ,
+	// 	language_code: ,
+	// 	language_name: ,
+	//  getImages: function(){}
+	// }
+	_.each(data, function(item, index, list){
+		var languageCode = item.language;
+		var i = _.findIndex(loadedCountries, function(item){
+			return item.language_a_code == languageCode;
+		});
+		var languageName = loadedCountries[i].language_a_name;
+
+		_.each(item.results, function(item, index, list){
+			
+
+			parsedRecords.push({
+				query: item,
+				language_code: languageCode,
+				language_name: languageName
+			});
+		});
+	});
+	// console.log(parsedRecords);
+	callback(parsedRecords);
+}
 
 function getDomains(callback){
 	
