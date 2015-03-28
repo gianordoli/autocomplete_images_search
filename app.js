@@ -36,7 +36,74 @@ var loadedCountries = jf.readFileSync('data/languages.json');
 /*------------------- ROUTERS -------------------*/
 app.get('/start', function(request, response) {
 
-	// all letter, all dates, not all languages
+	getDateRangeDB(function(range){
+		// console.log(range);
+		// Get the last day only:
+		range[0] = range[1] - 86400000; // Last day - 1
+
+		getDomains(function(domains){
+
+			searchMongoDB(({
+				'date': {'$gt': new Date(range[0]), '$lte': new Date(range[1])},
+				'service': 'images',
+				'domain': {'$in': domains }
+			}), function(data){
+				// console.log(data);
+
+				/* -----------------------------------------*/
+				// Group records by language.
+				// From [records] to
+				// 	 { 'language': [records] }
+				/*------------------------------------------*/
+				var groupedByLanguage = _.groupBy(data, function(item, index, list){
+					return item.language;
+				});
+				// console.log(Object.keys(groupedByLanguage));
+				// console.log(groupedByLanguage);
+
+				// groupedByLanguage = _.mapObject(groupedByLanguage, function(value, key, list){
+					// return loadedCountries[languageIndex].language_a_name;
+				// });
+
+				for(key in groupedByLanguage){
+					// console.log(key);
+					var languageIndex = _.findIndex(loadedCountries, function(item){
+						return item.language_a_code == key;
+					});
+					var languageName = loadedCountries[languageIndex].language_a_name;
+					
+					for(var i = 0; i < groupedByLanguage[key].length; i++){
+						groupedByLanguage[key][i]['language_name'] = languageName;
+					}
+				}
+
+				// groupedByLanguage = _.sortBy(groupedByLanguage)
+
+				groupedByLanguage = _.toArray(groupedByLanguage);
+				groupedByLanguage = _.sortBy(groupedByLanguage, function(item, index, list){
+					return item[0]['language_name'];
+				});
+
+				response.json({results: groupedByLanguage});
+
+				// var file = 'images_by_language_date.json';
+				// jf.writeFile(file, groupedByLanguage, function(err) {
+				// 	// console.log(err);
+				// 	if(!err){
+				// 		console.log('Results successfully saved at ' + file);
+				// 	}else{
+				// 		console.log('Failed to save JSON file.');
+				// 	}
+				// });
+			});
+		});
+	});	
+
+	
+});
+
+function getDomains(callback){
+	
 	// filter country based on language based on available images service
 	var filteredCountries = _.filter(loadedCountries, function(item, index, list){
 		return item['images'] == 1;
@@ -45,83 +112,26 @@ app.get('/start', function(request, response) {
 		return item.domain;
 	});
 
-	searchMongoDB(({
-		'service': 'images',
-		'domain': {'$in': filteredDomains }
-	}), function(data){
-		/* -----------------------------------------*/
-		// Group records by language.
-		// From [records] to
-		// 	 { 'language': [records] }
-		/*------------------------------------------*/
-		var groupedByLanguage = _.groupBy(data, function(item, index, list){
-			return item.language;
-		});
-		// console.log(Object.keys(groupedByLanguage));
-		// console.log(groupedByLanguage);
+	callback(filteredDomains);
+}
 
-		/*------------------------------------------*/
-		// Inside each language, group by letter (ignore date)
-		// From { 'language': [records] } to
-		// 	 { 'language': { 'letter': [records] } }
-		/*------------------------------------------*/
-		groupedByLanguage = _.mapObject(groupedByLanguage, function(value, key, list){
-			// console.log(key);
-			var groupedByLetter = _.groupBy(value, function(val, k, list){
-				return val.letter;
-			});
-			// console.log(Object.keys(groupedByLetter));
-			return groupedByLetter;
-		});
-		// console.log(groupedByLanguage['pt-BR']);
-		
-		/*------------------------------------------*/
-		// Inside each language, merging records inside each letter
-		// From { 'language': { 'letter': [records] } }
-		// 	 { 'language': { 'letter': [ { 'query' : quant } ] } }
-		/*------------------------------------------*/
-		// Object
-		var newGroupedByLanguage = _.mapObject(groupedByLanguage, function(languageObj, key, list){				
+function getDateRangeDB(callback){
+	console.log('Called searchMongoDB.')
 
-			// Object
-			var newLanguageObj = _.mapObject(languageObj, function(letterObj, key, list){					
+	MongoClient.connect('mongodb://127.0.0.1:27017/autocomplete', function(err, db) {
+		console.log('Connecting to DB...');
+		if(err) throw err;
+		console.log('Connected.');
+		var collection = db.collection('date_range');
 
-				var letterResults = {};
-				
-				// Array (of records)
-				_.each(letterObj, function(record, index, list){
-					
-					// Array (results inside each record)
-					_.each(record.results, function(result, index, list){
-
-						// If the result doesn't exist in the list yet
-						if(!letterResults.hasOwnProperty(result)){
-							letterResults[result] = 0;
-						}else{
-							letterResults[result] += 1;
-						}
-					});
-				});
-				// console.log(letterResults);
-				return letterResults;
-			});
-			// console.log(newLanguageObj);
-			return newLanguageObj;
-		});
-
-		var file = 'images_by_language.json';
-		jf.writeFile(file, newGroupedByLanguage, function(err) {
-			// console.log(err);
-			if(!err){
-				console.log('Results successfully saved at ' + file);
-			}else{
-				console.log('Failed to save JSON file.');
-			}
-		});		
-
-		// response.json({results: data});	
-	});
-});
+		collection.find({}).toArray(function(err, results) {
+			// console.dir(results);
+			// console.log(results[0].min);
+			callback([results[0].min, results[0].max]);
+			db.close();	// Let's close the db 
+		});			
+	});	
+}
 
 function searchMongoDB(params, callback){
 	console.log('Called searchMongoDB.')
