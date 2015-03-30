@@ -52,12 +52,12 @@ app.control = (function() {
 	}	
 
 	function createImg(data, response, i){
-		var img = $('<img src="'+response.url+'"></img>');
+		var img = $('<img class="item" src="'+response.url+'"></img>');
 		$('#container').append(img);
 		i++;
 		setTimeout(function(){
 			loadImages(data, i);
-		}, 500);
+		}, 1000);
 	}
 
 	function printResults(data, callback){

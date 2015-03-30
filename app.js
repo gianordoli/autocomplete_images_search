@@ -3,8 +3,7 @@ var		express = require('express'),
 	 bodyParser = require('body-parser')
 	MongoClient = require('mongodb').MongoClient,
 			 jf = require('jsonfile'),
-			  _ = require('underscore')
-		 client = require('google-images');
+			  _ = require('underscore');
 
 var app = express();
 
@@ -69,7 +68,15 @@ app.get('/start', function(request, response) {
 
 app.get('/images/', function(request, response) {
 	console.log(request.query.word);
-	getImages(request.query.word, response);
+
+	var query = request.query.word;
+    // Replacing the spaces to save the file
+    while(query.indexOf(' ') > -1){
+    	query = query.replace(' ', '+');
+    }
+    console.log(query);
+
+	getImages(query, response);
 });
 
 var getImages = function(query, response){
